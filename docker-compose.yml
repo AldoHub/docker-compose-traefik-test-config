@@ -1,0 +1,57 @@
+version: '3'
+services:
+  #frontend - app service
+  app:
+    build:
+      context: ./dockerfiles #inside the dockerfiles folder
+      dockerfile: javascript.dockerfile #use this dockerfile
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./frontend:/var/www/html #store the frontend data inside the var/www/html
+    labels:
+      - "traefik.http.routers.site.rule=Host(`app.localhost`)" #will use app.localhost as the domain name (routes the traffic that matches the rule, to this service)
+    depends_on:
+      - traefik
+      - api
+
+  #set the db for laravel
+  mysql:
+    image: mariadb:10.6
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: laravel
+      MYSQL_USER: laravel
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: secret
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+
+  #set the laravel api
+  api:
+    build:
+      context: ./dockerfiles #get the dockerfile from this folder
+      dockerfile: php.dockerfile #create the php image    
+    ports:
+      - "8082:8082"
+    volumes:
+      - ./backend:/var/www/html #pass the laravel files to the html folder inside the container
+    labels:
+      - "traefik.http.routers.api.rule=(Host(`app.localhost`) && PathPrefix(`/api`))" #will use app.localhost/api (routes the traffic to this service)
+    depends_on:
+      - traefik
+      - mysql
+
+
+  #proxy
+  traefik:
+    image: traefik:v2.9
+    command: --api.insecure=true --providers.docker #allows the use without ssl/tls certificates / also tells it to use docker
+    ports:
+      - "80:80"
+      - "8080:8080" #dashboard view from traefik
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock    

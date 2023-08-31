@@ -1,0 +1,1 @@
+Assume this folder has a laravel installation on it
